@@ -2,16 +2,18 @@ const fs = require('fs')
 
 const server = require('express')()
 
-const renderer = require('vue-server-renderer').createRenderer({
+const { createBundleRenderer } = require('vue-server-renderer')
+
+const serverBundle = require('./vue-ssr-server-bundle.json')
+const clientManifest = require('/path/to/vue-ssr-client-manifest.json')
+
+const renderer = createBundleRenderer(serverBundle, {
+  runInNewContext: false,
   template: fs.readFileSync('./index.template.html', 'utf-8'),
+  clientManifest,
 })
 
 const createApp = require('./app')
-
-const context = {
-  title: 'UU is good',
-  meta: `<meta charset="UTF-8">`,
-}
 
 server.get('*', (req, res) => {
   const context = {
@@ -23,10 +25,14 @@ server.get('*', (req, res) => {
 
   renderer.renderToString(app, context, (err, html) => {
     if (err) {
-      res.status(500).end('Internal Server Error')
-      return
+      if (err.code === 404) {
+        res.status(404).end('Page not found')
+      } else {
+        res.status(500).end('Internal Server Error')
+      }
+    } else {
+      res.end(html)
     }
-    res.end(html)
   })
 })
 server.listen(8080)
